@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ward monitor · Digital Twin</title>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{--bg:#eef2f3;--panel:#fff;--ink:#10282d;--mute:#5d7378;--line:#d5dee0;--ok:#1f7a6b;--warn:#b87a12;--crit:#c2362b;--acc:#2f5d8a;
+--okbg:#e3f2ef;--warnbg:#fbf1dc;--critbg:#fbe5e2}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 "Atkinson Hyperlegible",system-ui,sans-serif}
+header{display:flex;justify-content:space-between;align-items:center;padding:14px 24px;background:var(--ink);color:#fff}
+header h1{margin:0;font-size:18px;font-weight:700}
+#who{margin-left:14px;font-size:14px}#who button{margin-left:8px;background:none;border:1px solid #fff;color:#fff;border-radius:4px;padding:2px 8px;font:inherit;cursor:pointer}
+#login{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:10}
+#login form{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:24px;width:320px}
+#login h2{font-size:20px}#login label{display:block;margin:10px 0 4px}#login input{width:100%;padding:9px;border:1px solid var(--line);border-radius:6px;font:inherit}
+#login .err{color:var(--crit);min-height:22px;margin-top:8px}
+#status{font-size:14px;display:flex;gap:8px;align-items:center}
+#status i{width:10px;height:10px;border-radius:50%;background:#888;display:inline-block}
+#status.on i{background:#4fd1a5}#status.off i{background:#ff7a6b}
+main{display:grid;grid-template-columns:300px 1fr;gap:20px;padding:20px 24px;max-width:1300px;margin:0 auto}
+.beds{display:flex;flex-direction:column;gap:8px}
+.bed{all:unset;cursor:pointer;display:block;background:var(--panel);border:1px solid var(--line);border-left:6px solid var(--ok);border-radius:6px;padding:10px 12px}
+.bed.warn{border-left-color:var(--warn)}.bed.crit{border-left-color:var(--crit)}
+.bed[aria-pressed=true]{outline:2px solid var(--acc)}
+.bed:focus-visible{outline:3px solid var(--acc)}
+.bed .row{display:flex;justify-content:space-between;align-items:baseline}
+.bed b{font-size:16px}.bed .pct{font-size:26px;font-weight:700}
+.bed small{color:var(--mute)}
+.bar{height:6px;background:#e4ebed;border-radius:3px;margin-top:6px;overflow:hidden}
+.bar span{display:block;height:100%;background:var(--ok);transition:width .6s}
+.warn .bar span{background:var(--warn)}.crit .bar span{background:var(--crit)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:16px;margin-bottom:16px}
+h2{margin:0 0 10px;font-size:16px}
+.top{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px}
+.top h2{font-size:24px;margin:0}.top p{margin:2px 0 0;color:var(--mute)}
+.trend{padding:4px 12px;border-radius:14px;font-weight:700;font-size:14px;background:var(--okbg);color:var(--ok)}
+.trend.rising{background:var(--critbg);color:var(--crit)}.trend.stable{background:#e8eef0;color:var(--mute)}
+.vitals{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.v{border:1px solid var(--line);border-radius:6px;padding:10px 12px;background:var(--okbg)}
+.v.bad{background:var(--critbg);border-color:var(--crit)}
+.v small{color:var(--mute);display:block}.v strong{font-size:28px}.v span{color:var(--mute);margin-left:4px}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.chartbox{height:230px;position:relative}
+ul.alerts{list-style:none;margin:0;padding:0;max-height:260px;overflow:auto}
+ul.alerts li{padding:8px 10px;border-radius:6px;margin-bottom:6px;background:var(--warnbg);display:flex;justify-content:space-between;gap:10px}
+ul.alerts li.critical{background:var(--critbg)}ul.alerts small{color:var(--mute);white-space:nowrap}
+.empty{color:var(--mute)}
+.sl{display:grid;grid-template-columns:110px 1fr 56px;gap:10px;align-items:center;margin:6px 0}
+.sl output{text-align:right;font-weight:700}
+input[type=range]{width:100%;accent-color:var(--acc)}
+button.run{background:var(--acc);color:#fff;border:0;border-radius:6px;padding:10px 16px;font:inherit;font-weight:700;cursor:pointer;margin-top:8px}
+button.run:focus-visible{outline:3px solid var(--ink)}
+#res{margin-top:12px;font-size:18px}#res .big{font-size:30px;font-weight:700}
+@media(max-width:860px){main{grid-template-columns:1fr;padding:12px}.cols{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+.ex{display:grid;grid-template-columns:150px 1fr 60px;gap:10px;align-items:center;margin:5px 0;font-size:15px}
+.ex .track{position:relative;height:16px;background:#eef2f3;border-radius:3px}
+.ex .track i{position:absolute;top:0;bottom:0;border-radius:3px}
+.ex .track::after{content:"";position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:var(--mute)}
+.ex output{text-align:right;font-weight:700}
+.ex.up i{background:var(--crit)}.ex.down i{background:var(--ok)}
+</style>
+</head>
+<body>
+<header><h1>Ward monitor · Digital Twin</h1><div style="display:flex;align-items:center"><div id="status" class="off"><i></i><span>Connecting…</span></div><span id="who"></span></div></header>
+<div id="login"><form id="lf"><h2>Sign in to the ward monitor</h2><label for="u">Username</label><input id="u" autocomplete="username" required><label for="pw">Password</label><input id="pw" type="password" autocomplete="current-password" required><button class="run" style="width:100%">Sign in</button><div class="err" id="lerr" role="alert"></div></form></div>
+<main>
+  <nav class="beds" id="beds" aria-label="Patients"></nav>
+  <section id="detail">
+    <div class="panel top">
+      <div><h2 id="pname">No patient selected</h2><p id="pmeta"></p></div>
+      <span class="trend stable" id="ptrend"></span>
+    </div>
+    <div class="panel"><h2>Live vitals</h2><div class="vitals" id="vitals"><p class="empty">Waiting for readings. Start the simulator: python simulator\simulator.py</p></div></div>
+    <div class="cols">
+      <div class="panel"><h2>Heart-disease likelihood over time</h2><div class="chartbox"><canvas id="chart"></canvas></div></div>
+      <div class="panel"><h2>Alerts</h2><ul class="alerts" id="alerts"><li class="empty" style="background:none">No alerts yet.</li></ul></div>
+    </div>
+    <div class="panel" id="explainPanel">
+      <h2>Why this likelihood?</h2>
+      <p class="empty" style="margin-top:0" id="exnote">Each bar shows how much a factor pushed this patient's likelihood up (red) or down (green), compared with a typical patient.</p>
+      <div id="explain"></div>
+    </div>
+    <div class="panel" id="whatifPanel">
+      <h2>What if we change this patient’s numbers?</h2>
+      <p class="empty" style="margin-top:0">Move a slider to add or subtract from the latest reading, then run the scenario on the twin.</p>
+      <div id="sliders"></div>
+      <button class="run" id="run">Run scenario</button>
+      <div id="res" aria-live="polite"></div>
+    </div>
+  </section>
+</main>
+<script>
+const API="/api";
+const V=[["hr","Heart rate","bpm",50,120],["spo2","Oxygen (SpO₂)","%",92,101],["sys_bp","Systolic BP","mmHg",90,160],["dia_bp","Diastolic BP","mmHg",55,100],["temp","Temperature","°C",35.5,38.5],["glucose","Glucose","mg/dL",65,250]];
+const S=[["glucose","Glucose",-100,100,5],["sys_bp","Systolic BP",-60,60,5],["chol","Cholesterol",-100,100,10]];
+const $=s=>document.querySelector(s);
+const tone=r=>r>=.6?"crit":r>=.3?"warn":"ok";
+let sel=null,chart=null;
+let token=sessionStorage.getItem("tok"),user=JSON.parse(sessionStorage.getItem("usr")||"null");
+function logout(){sessionStorage.clear();token=user=null;sel=null;showLogin()}
+function showLogin(){$("#login").style.display=token?"none":"flex";$("#who").innerHTML=user?`${user.username} (${user.role}) <button id="lo">Sign out</button>`:"";
+  if(user){$("#lo").onclick=logout;$("#whatifPanel").style.display=user.role==="patient"?"none":""}}
+async function j(u,o={}){o.headers={...(o.headers||{}),Authorization:"Bearer "+token};const r=await fetch(API+u,o);
+  if(r.status===401){logout();throw new Error("401")}if(!r.ok)throw new Error(r.status);return r.json()}
+$("#lf").onsubmit=async e=>{e.preventDefault();$("#lerr").textContent="";
+  try{const r=await fetch(API+"/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:$("#u").value,password:$("#pw").value})});
+    const d=await r.json();if(!r.ok){$("#lerr").textContent=d.error||"Sign-in failed";return}
+    token=d.token;user=d.user;sessionStorage.setItem("tok",token);sessionStorage.setItem("usr",JSON.stringify(user));$("#pw").value="";showLogin();tick()}
+  catch(err){$("#lerr").textContent="Backend not reachable. Is app.py running?"}};
+function status(on){const s=$("#status");s.className=on?"on":"off";s.querySelector("span").textContent=on?"Live · updates every 2 s":"Backend not reachable (is app.py running?)"}
+function select(id){sel=id;$("#res").textContent="";document.querySelectorAll("#sliders input").forEach(i=>{i.value=0;i.oninput()});tick()}
+function renderBeds(ps){
+  $("#beds").innerHTML=ps.map(p=>{const r=p.latest?p.latest.risk:null,t=r==null?"ok":tone(r);
+    return `<button class="bed ${t}" aria-pressed="${p.id===sel}" data-id="${p.id}"><div class="row"><b>${p.name}</b><span class="pct">${r==null?"–":Math.round(r*100)+"%"}</span></div><small>${p.id} · ${p.age} yrs · risk ${p.risk_trend}</small><div class="bar"><span style="width:${r==null?0:r*100}%"></span></div></button>`}).join("");
+  document.querySelectorAll(".bed").forEach(b=>b.onclick=()=>select(b.dataset.id));
+}
+function renderDetail(t,h){
+  const p=t.patient,l=t.latest;
+  $("#pname").textContent=p.name;
+  $("#pmeta").textContent=`${p.id} · ${p.age} years · ${p.sex?"male":"female"} · BMI ${p.bmi}`;
+  const tr=$("#ptrend");tr.textContent="Risk "+t.risk_trend;tr.className="trend "+(t.risk_trend==="rising"?"rising":t.risk_trend==="stable"?"stable":"");
+  if(l){$("#vitals").innerHTML=V.map(([k,n,u,lo,hi])=>{const v=l[k],bad=v<lo||v>hi;
+    return `<div class="v ${bad?"bad":""}"><small>${n}</small><strong>${v.toFixed(k==="temp"?1:0)}</strong><span>${u}</span></div>`}).join("")}
+  const labels=h.map(x=>new Date(x.ts*1000).toLocaleTimeString()),data=h.map(x=>+(x.risk*100).toFixed(1));
+  if(!chart){chart=new Chart($("#chart"),{type:"line",data:{labels,datasets:[{data,borderColor:"#2f5d8a",backgroundColor:"rgba(47,93,138,.12)",fill:true,tension:.3,pointRadius:0}]},
+    options:{animation:false,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{min:0,max:100,title:{display:true,text:"Likelihood %"}},x:{ticks:{maxTicksLimit:5}}}}})}
+  else{chart.data.labels=labels;chart.data.datasets[0].data=data;chart.update()}
+  $("#alerts").innerHTML=t.alerts.length?t.alerts.map(a=>`<li class="${a.level}"><span>${a.msg}</span><small>${new Date(a.ts*1000).toLocaleTimeString()} · ${a.source}</small></li>`).join(""):'<li class="empty" style="background:none">No alerts yet.</li>';
+}
+const FN={age:"Age",sex:"Sex",cp:"Chest pain type",trestbps:"Resting BP",chol:"Cholesterol",fbs:"Blood sugar ≥120",restecg:"Resting ECG",thalach:"Max heart rate",exang:"Exercise angina",oldpeak:"ST depression",slope:"ST slope",ca:"Blocked vessels",thal:"Thalassemia result"};
+async function loadExplain(){
+  try{const e=await j(`/patients/${sel}/explain`),m=Math.max(...e.contributions.map(c=>Math.abs(c.shap)),.01);
+    $("#exnote").textContent=`Typical patient: ${Math.round(e.baseline_risk*100)}% → this patient: ${Math.round(e.risk*100)}%. Top 8 factors:`;
+    $("#explain").innerHTML=e.contributions.slice(0,8).map(c=>{const w=Math.abs(c.shap)/m*50,up=c.shap>=0,v=Number.isInteger(c.value)?c.value:c.value.toFixed(1);
+      return `<div class="ex ${up?"up":"down"}"><span>${FN[c.feature]||c.feature} = ${v}</span><div class="track"><i style="width:${w}%;${up?"left:50%":"right:50%"}"></i></div><output>${up?"+":""}${(c.shap*100).toFixed(1)}</output></div>`}).join("")}
+  catch(e){$("#explain").innerHTML=""}
+}
+async function tick(){
+  if(!token)return;
+  try{
+    const ps=await j("/patients");status(true);
+    if(!sel&&ps.length)sel=ps[0].id;
+    renderBeds(ps);
+    if(sel){const [t,h]=await Promise.all([j(`/patients/${sel}/twin`),j(`/patients/${sel}/history?n=60`)]);renderDetail(t,h);loadExplain()}
+  }catch(e){status(false)}
+}
+$("#sliders").innerHTML=S.map(([k,n,lo,hi,st])=>`<div class="sl"><label for="s_${k}">${n}</label><input type="range" id="s_${k}" data-k="${k}" min="${lo}" max="${hi}" step="${st}" value="0"><output>0</output></div>`).join("");
+document.querySelectorAll("#sliders input").forEach(i=>{i.oninput=()=>{const v=+i.value;i.nextElementSibling.textContent=(v>0?"+":"")+v}});
+$("#run").onclick=async()=>{
+  if(!sel)return;
+  const ch={};document.querySelectorAll("#sliders input").forEach(i=>{if(+i.value)ch[i.dataset.k]=+i.value});
+  try{const r=await j(`/patients/${sel}/whatif`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(ch)});
+    const a=Math.round(r.baseline_risk*100),b=Math.round(r.scenario_risk*100),d=b-a;
+    $("#res").innerHTML=`Risk <span class="big">${a}% → ${b}%</span> (${d>0?"+":""}${d} points)`}
+  catch(e){$("#res").textContent="No readings for this patient yet. Wait for the simulator to send data."}
+};
+showLogin();tick();setInterval(tick,2000);
+</script>
+</body>
+</html>
