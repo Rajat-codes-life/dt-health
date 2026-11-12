@@ -1,0 +1,48 @@
+{
+  "rows_raw": 1025,
+  "rows_unique": 302,
+  "best_model": "Random Forest",
+  "cv_roc_auc": {
+    "Logistic Regression": {
+      "mean": 0.907,
+      "std": 0.032
+    },
+    "Random Forest": {
+      "mean": 0.914,
+      "std": 0.027
+    },
+    "Gradient Boosting": {
+      "mean": 0.894,
+      "std": 0.029
+    }
+  },
+  "test": {
+    "n": 61,
+    "accuracy": 0.803,
+    "precision": 0.767,
+    "recall": 0.821,
+    "f1": 0.793,
+    "roc_auc": 0.887,
+    "confusion": {
+      "tn": 26,
+      "fp": 7,
+      "fn": 5,
+      "tp": 23
+    }
+  },
+  "feature_importance": {
+    "cp": 0.043,
+    "thal": 0.0341,
+    "ca": 0.0249,
+    "sex": 0.0125,
+    "thalach": 0.0105,
+    "oldpeak": 0.0061,
+    "slope": 0.0052,
+    "exang": 0.0043,
+    "age": 0.0019,
+    "trestbps": 0.0003,
+    "restecg": 0.0003,
+    "fbs": 0.0001,
+    "chol": -0.0025
+  }
+}
