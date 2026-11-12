@@ -1,6 +1,6 @@
 """Fake IoT wearables. Run: python simulator/simulator.py  (backend must be running)"""
 import os, time, random, requests
-API = "http://localhost:5000/api"
+API = "https://dt-health.onrender.com"
 sess = requests.Session()
 sess.headers["X-Device-Key"] = os.environ.get("DEVICE_KEY", "dev-device-key")   # device credential
 # EHR fields below are real rows taken from the UCI heart dataset (static record), vitals are simulated live.
