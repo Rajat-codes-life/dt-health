@@ -8,3 +8,4 @@ requests
 matplotlib
 PyJWT
 cryptography
+gunicorn
