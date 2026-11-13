@@ -1,6 +1,6 @@
 """Fake IoT wearables. Run: python simulator/simulator.py  (backend must be running)"""
 import os, time, random, requests
-API = "https://dt-health.onrender.com"
+API = os.environ.get("API_URL", "https://dt-health.onrender.com") + "/api"
 sess = requests.Session()
 sess.headers["X-Device-Key"] = os.environ.get("DEVICE_KEY", "dev-device-key")   # device credential
 # EHR fields below are real rows taken from the UCI heart dataset (static record), vitals are simulated live.
@@ -14,7 +14,7 @@ PATIENTS = [
     {"id": "P004", "name": "Kavita Singh", "age": 60, "sex": 0, "bmi": 27.0,
      "ehr": {"cp": 0, "chol": 258, "restecg": 0, "thalach": 157, "exang": 0, "oldpeak": 2.6, "slope": 1, "ca": 2, "thal": 3}},
 ]
-for p in PATIENTS: sess.post(f"{API}/patients", json=p)
+for p in PATIENTS: sess.post(f"{API}/patients", json=p, timeout=60)
 state = {p["id"]: {"hr": 76, "spo2": 97, "sys_bp": 122, "dia_bp": 80, "temp": 36.8, "glucose": 105} for p in PATIENTS}
 episode = {}   # pid -> ticks left in a deterioration episode
 
@@ -34,6 +34,11 @@ def step(pid):
 
 while True:
     for p in PATIENTS:
-        r = sess.post(f"{API}/vitals/{p['id']}", json=step(p["id"])).json()
-        print(p["id"], f"risk={r['risk']:.0%}", [a["msg"] for a in r["alerts"]])
+        try:
+            r = sess.post(f"{API}/vitals/{p['id']}", json=step(p["id"]), timeout=60)
+            r.raise_for_status()
+            r = r.json()
+            print(p["id"], f"risk={r['risk']:.0%}", [a["msg"] for a in r["alerts"]])
+        except Exception as e:
+            print(p["id"], "failed:", e)
     time.sleep(2)
